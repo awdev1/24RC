@@ -1,4 +1,4 @@
-import { Application, Container, FederatedPointerEvent, Point} from "pixi.js";
+import { Application, Container, FederatedPointerEvent, Point } from "pixi.js";
 // import { Button } from '@pixi/ui';
 import 'pixi.js/math-extras';
 import { acftCollectionToAcftArray, pointsToDistance } from "./util";
@@ -11,9 +11,8 @@ import DisplayControlBar from "./components/DisplayControlBar";
 import AircraftLabel from "./components/AircraftLabel";
 
 // const pollAuthority = "http://localhost:3000";
-const POLL_AUTHORITY = "https://24data.ptfs.app";
-const POLL_INTERVAL = 3000;
-const POLL_ROUTES = ["/acft-data", "/acft-data/event"];
+// const POLL_INTERVAL = 3000;
+// const POLL_ROUTES = ["/acft-data", "/acft-data/event"];
 const ROUTE_SWITCH_DELAY = 1000;
 
 const DOUBLE_CLICK_MS = 300;
@@ -36,7 +35,7 @@ let tickInterval: number;
         document.body.innerHTML = `Could not start. No element with ID "pixi-container" exists.`;
         return;
     }
-    
+
     const app = new Application();
 
     let failed = false;
@@ -47,7 +46,7 @@ let tickInterval: number;
         return;
     }
     container.appendChild(app.canvas);
-    
+
     const basemap = new Container();
     const trackContainer = new Container();
     const uiContainer = new Container();
@@ -110,7 +109,7 @@ let tickInterval: number;
 
     window.addEventListener("keydown", ev => {
         // If the user typesinto a label dont trigger hotkeys
-        if(acftLabels.some(label => label.scratchPad.isBeingEdited)) return;
+        if (acftLabels.some(label => label.scratchPad.isBeingEdited)) return;
 
         // Switch polling source between event and normal server
         if (ev.key.toLocaleUpperCase() === "E") {
@@ -122,11 +121,7 @@ let tickInterval: number;
                 track.destroy();
             });
             acftTracks = [];
-            activeRoute = (activeRoute + 1) % (POLL_ROUTES.length);
-
-            clearInterval(tickInterval);
-            tick();
-            tickInterval = setInterval(tick, POLL_INTERVAL);
+            activeRoute = 0;
         }
         // Toggle for Predicted track lines
         else if (ev.key.toUpperCase() === "P") {
@@ -141,7 +136,7 @@ let tickInterval: number;
     // Resizing and moving
     ////////////////////////
     function positionGraphics() {
-        acftTracks.forEach(acftTrack => acftTrack.positionGraphics());      
+        acftTracks.forEach(acftTrack => acftTrack.positionGraphics());
         acftLabels.forEach(label => label.tickUpdate());
         distanceTool.positionGraphics();
     }
@@ -158,7 +153,7 @@ let tickInterval: number;
 
         positionGraphics();
     }
-    
+
     // Register events for dragging map
     app.stage.eventMode = 'static';
     app.stage.hitArea = app.screen;
@@ -171,7 +166,7 @@ let tickInterval: number;
     app.stage.on('wheel', e => {
         // down scroll, zoom out
         if (e.deltaY > 0)
-            basemap.scale.set(basemap.scale.x * 1/1.1);
+            basemap.scale.set(basemap.scale.x * 1 / 1.1);
         // up scroll, zoom in
         else if (e.deltaY < 0)
             basemap.scale.set(basemap.scale.x * 1.1);
@@ -181,71 +176,82 @@ let tickInterval: number;
 
     // Update aircraft tracks
     ///////////////////////////
-    const tick = () => {
-        fetch(
-            `${POLL_AUTHORITY}${POLL_ROUTES[activeRoute]}`,
-        ).then(async (res) => {
-            const acftCollection: AircraftCollection = await res.json();
-            const acftDatas = acftCollectionToAcftArray(acftCollection);
+    const WS_URL = "wss://24data.ptfs.app/wss";
 
-            // Iterate through the existing track
-            acftTracks.forEach(track => {
-                // If the track has new data
-                const matchingData = acftDatas.find(acftData => acftData.playerName === track.acftData.playerName);
-                if (matchingData) {
-                    track.updateData(matchingData);
-                }
-                else {
-                    // The track has no new data
-                    track.notFound();
-                    if (track.ttl <= 0)
-                        track.destroy();
-                }
-            });
+    let ws: WebSocket | null = null;
+    let wsConnected = false;
+    let reconnectTimeout = 2000;
+    let eventModeWS = false;
 
-            // Data that cannot be found in existing tracks
-            const newAcftDatas = acftDatas.filter(acftData => !acftTracks.find(track => track.acftData.playerName === acftData.playerName));
-            newAcftDatas.forEach(acftData => {
-                const track = new AircraftTrack(acftData, trackContainer, basemap);
-                acftTracks.push(track);
-                track.positionGraphics();
-            });
+    function connectWS() {
+        if (ws) ws.close();
+        ws = new WebSocket(WS_URL);
+        ws.onopen = () => { wsConnected = true };
+        ws.onclose = () => {
+            wsConnected = false;
+        };
+        ws.onerror = () => {
+            wsConnected = false;
+            ws?.close();
+        };
+        ws.onmessage = onWSMessage;
+    }
 
-            // Filter tracks with TTL < 0;
-            acftTracks = acftTracks.filter(track => track.ttl > 0);
+    function processData(acftCollection: AircraftCollection) {
+        const acftDatas = acftCollectionToAcftArray(acftCollection);
 
-
-            acftLabels = acftLabels.filter(label => !label.isDestroyed);
-
-            // Iterate through existing labels
-            acftLabels.forEach(label => {
-                const matchingData = acftDatas.find(acftData => acftData.playerName === label.acftData.playerName);
-                if(matchingData) {
-                    label.updateData(matchingData);
-                    label.updateGraphics();
-                } else {
-                    // No new data received, plane probably deleted => destroy label
-                    label.destroy();
-                }
-            });
-
-            // Create new labels for new aircraft
-            newAcftDatas.forEach(acftData => {
-                const label = new AircraftLabel(acftData, trackContainer, basemap);
-                acftLabels.push(label);
-            });
-        }).catch(() => {
-            // Ping failed. All tracks not found.
-            acftTracks.forEach(track => {
+        acftTracks.forEach(track => {
+            const matchingData = acftDatas.find(acftData => acftData.playerName === track.acftData.playerName);
+            if (matchingData) {
+                track.updateData(matchingData);
+            }
+            else {
                 track.notFound();
                 if (track.ttl <= 0)
                     track.destroy();
-            });
-
-            acftTracks = acftTracks.filter(track => track.ttl > 0);
+            }
         });
-    };
 
-    tick();
-    tickInterval = setInterval(tick, POLL_INTERVAL);
+        const newAcftDatas = acftDatas.filter(acftData => !acftTracks.find(track => track.acftData.playerName === acftData.playerName));
+        newAcftDatas.forEach(acftData => {
+            const track = new AircraftTrack(acftData, trackContainer, basemap);
+            acftTracks.push(track);
+            track.positionGraphics();
+        });
+
+        acftTracks = acftTracks.filter(track => track.ttl > 0);
+
+        acftLabels = acftLabels.filter(label => !label.isDestroyed);
+
+        acftLabels.forEach(label => {
+            const matchingData = acftDatas.find(acftData => acftData.playerName === label.acftData.playerName);
+            if (matchingData) {
+                label.updateData(matchingData);
+                label.updateGraphics();
+            } else {
+                label.destroy();
+            }
+        });
+
+        newAcftDatas.forEach(acftData => {
+            const label = new AircraftLabel(acftData, trackContainer, basemap);
+            acftLabels.push(label);
+        });
+    }
+
+    function onWSMessage(ev: MessageEvent) {
+        const msg = JSON.parse(ev.data);
+        if (!msg || !msg.t) return;
+
+        const isMain = msg.t === "ACFT_DATA";
+        const isEvent = msg.t === "EVENT_ACFT_DATA";
+
+        if (eventModeWS && !isEvent) return;
+        if (!eventModeWS && !isMain) return;
+
+        processData(msg.d);
+    }
+
+    connectWS();
+
 })();
