@@ -9,12 +9,13 @@ import DistanceTool from "./components/DistanceTool";
 import AssetManager from "./AssetManager";
 import DisplayControlBar from "./components/DisplayControlBar";
 import AircraftLabel from "./components/AircraftLabel";
+import createWebSocketManager from "./ws/connector";
 
 // const pollAuthority = "http://localhost:3000";
 // const POLL_INTERVAL = 3000;
 // const POLL_ROUTES = ["/acft-data", "/acft-data/event"];
 const ROUTE_SWITCH_DELAY = 1000;
-
+const WS_URL = "wss://24data.ptfs.app/wss";
 const DOUBLE_CLICK_MS = 300;
 const DOUBLE_CLICK_DISTANCE = 200;
 
@@ -47,6 +48,34 @@ let tickInterval: number;
     }
     container.appendChild(app.canvas);
 
+    function createToastContainer(): HTMLElement {
+        let existing = document.querySelector('.toast-container') as HTMLElement | null;
+        if (existing) return existing;
+        const c = document.createElement('div');
+        c.className = 'toast-container';
+        document.body.appendChild(c);
+        return c;
+    }
+
+    const toastContainer = createToastContainer();
+
+    function showToast(message: string, type: 'success' | 'error' | 'info' = 'info', timeout = 3500) {
+        try {
+            const t = document.createElement('div');
+            t.className = `toast ${type}`;
+            t.textContent = message;
+            toastContainer.appendChild(t);
+            // Delay adding the show class slightly so the browser
+            // registers the starting transform/opacity and animates it.
+            setTimeout(() => t.classList.add('show'), 60);
+            setTimeout(() => {
+                t.classList.remove('show');
+                t.classList.add('hide');
+                t.addEventListener('transitionend', () => t.remove(), { once: true });
+            }, timeout);
+        } catch (e) {
+        }
+    }
     const basemap = new Container();
     const trackContainer = new Container();
     const uiContainer = new Container();
@@ -117,11 +146,13 @@ let tickInterval: number;
             if (now - lastSwitchTime < ROUTE_SWITCH_DELAY)
                 return; // 1s cooldown on switching event mode.
             lastSwitchTime = now;
-            acftTracks.forEach(track => {
-                track.destroy();
-            });
+            // toggle event mode
+            eventModeWS = !eventModeWS;
+            acftTracks.forEach(track => track.destroy());
             acftTracks = [];
-            activeRoute = 0;
+            acftLabels.forEach(label => label.destroy());
+            acftLabels = [];
+            showToast(`Event mode ${eventModeWS ? 'ON' : 'OFF'}`, 'info');
         }
         // Toggle for Predicted track lines
         else if (ev.key.toUpperCase() === "P") {
@@ -176,26 +207,22 @@ let tickInterval: number;
 
     // Update aircraft tracks
     ///////////////////////////
-    const WS_URL = "wss://24data.ptfs.app/wss";
 
-    let ws: WebSocket | null = null;
-    let wsConnected = false;
-    let reconnectTimeout = 2000;
     let eventModeWS = false;
 
-    function connectWS() {
-        if (ws) ws.close();
-        ws = new WebSocket(WS_URL);
-        ws.onopen = () => { wsConnected = true };
-        ws.onclose = () => {
-            wsConnected = false;
-        };
-        ws.onerror = () => {
-            wsConnected = false;
-            ws?.close();
-        };
-        ws.onmessage = onWSMessage;
-    }
+    const wsManager = createWebSocketManager(WS_URL, {
+        onMessage: onWSMessage,
+        onOpen: () => showToast('WebSocket connected', 'success'),
+        onClose: () => showToast('WebSocket disconnected', 'error'),
+        onError: () => showToast('WebSocket error', 'error'),
+    }, {
+        heartbeatInterval: 15000,
+        heartbeatTimeout: 30000,
+        reconnectBase: 2000,
+        reconnectMax: 30000,
+    });
+
+    wsManager.start();
 
     function processData(acftCollection: AircraftCollection) {
         const acftDatas = acftCollectionToAcftArray(acftCollection);
@@ -252,6 +279,5 @@ let tickInterval: number;
         processData(msg.d);
     }
 
-    connectWS();
 
 })();

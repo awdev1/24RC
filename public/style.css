@@ -123,3 +123,45 @@ body {
 .dcb-disabled:hover {
     color: #5A5A5A;
 }
+
+.toast-container {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 9999;
+    pointer-events: none;
+}
+.toast {
+    min-width: 180px;
+    max-width: 320px;
+    background: rgba(20,20,20,0.9);
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+    font-size: 13px;
+    transform: translateX(100%);
+    opacity: 0;
+    transition: transform 420ms cubic-bezier(.16,.84,.32,1), opacity 420ms ease;
+    pointer-events: auto;
+}
+.toast.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+.toast.hide {
+    transform: translateX(100%);
+    opacity: 0;
+}
+.toast.success {
+    background: linear-gradient(90deg,#0f5132,#198754);
+}
+.toast.error {
+    background: linear-gradient(90deg,#5f0d0d,#dc3545);
+}
+.toast.info {
+    background: linear-gradient(90deg,#0b3a66,#0d6efd);
+}
