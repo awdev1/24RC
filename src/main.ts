@@ -227,18 +227,22 @@ let tickInterval: number;
     function processData(acftCollection: AircraftCollection) {
         const acftDatas = acftCollectionToAcftArray(acftCollection);
 
+        // Iterate through the existing track
         acftTracks.forEach(track => {
+            // If the track has new data
             const matchingData = acftDatas.find(acftData => acftData.playerName === track.acftData.playerName);
             if (matchingData) {
                 track.updateData(matchingData);
             }
             else {
+                // The track has no new data
                 track.notFound();
                 if (track.ttl <= 0)
                     track.destroy();
             }
         });
 
+        // Data that cannot be found in existing tracks
         const newAcftDatas = acftDatas.filter(acftData => !acftTracks.find(track => track.acftData.playerName === acftData.playerName));
         newAcftDatas.forEach(acftData => {
             const track = new AircraftTrack(acftData, trackContainer, basemap);
@@ -246,20 +250,24 @@ let tickInterval: number;
             track.positionGraphics();
         });
 
+        // Filter tracks with TTL < 0;
         acftTracks = acftTracks.filter(track => track.ttl > 0);
 
         acftLabels = acftLabels.filter(label => !label.isDestroyed);
 
+        // Iterate through existing labels
         acftLabels.forEach(label => {
             const matchingData = acftDatas.find(acftData => acftData.playerName === label.acftData.playerName);
             if (matchingData) {
                 label.updateData(matchingData);
                 label.updateGraphics();
             } else {
+                // No new data received, plane probably deleted => destroy label
                 label.destroy();
             }
         });
 
+        // Create new labels for new aircraft
         newAcftDatas.forEach(acftData => {
             const label = new AircraftLabel(acftData, trackContainer, basemap);
             acftLabels.push(label);
