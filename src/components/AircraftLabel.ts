@@ -178,7 +178,7 @@ export default class AircraftLabel {
         this.isHovered = false;
         this.drawHoveringBackground();
     }
-    handlePointerDown(ev: PointerEvent) {
+    handlePointerDown(_ev: PointerEvent) {
         this.isDragged = true;
         // I changed this to global drag handlers as dragging the label fast would cause the mouse to leave the label
         // and stop receiving pointermove events, making it impossible to drag fast or far. - awdev 11.24.2025

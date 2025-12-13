@@ -9,7 +9,7 @@ import DistanceTool from "./components/DistanceTool";
 import AssetManager from "./AssetManager";
 import DisplayControlBar from "./components/DisplayControlBar";
 import AircraftLabel from "./components/AircraftLabel";
-import createWebSocketManager from "./ws/connector";
+import createWebSocketManager from "./ws/Connector";
 
 // const pollAuthority = "http://localhost:3000";
 // const POLL_INTERVAL = 3000;
@@ -25,8 +25,6 @@ const DOUBLE_CLICK_DISTANCE = 200;
 // };
 // const gameSize = {x: 96355, y: 92030};
 const antialias = false;
-
-let tickInterval: number;
 
 (async () => {
     // Initialisation
@@ -133,7 +131,6 @@ let tickInterval: number;
 
     // Event switching & keybinds
     ///////////////////////////////
-    let activeRoute = 0;
     let lastSwitchTime = 0;
 
     window.addEventListener("keydown", ev => {
