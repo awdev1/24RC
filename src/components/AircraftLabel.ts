@@ -91,19 +91,19 @@ export default class AircraftLabel {
         this.dataBlock = new Text({
             style: unassumedTextStyle,
         });
-        
+
         this.dataBlock.interactive = true;
-        
+
         this.dataBlock.on("pointerover", () => this.handlePointerEnter());
         this.dataBlock.on("pointerout", () => this.handlePointerLeave());
-        this.dataBlock.on("pointerdown", () => this.handlePointerDown());
+        this.dataBlock.on("pointerdown", (ev) => this.handlePointerDown(ev));
         this.dataBlock.on("pointerup", () => this.handlePointerUp());
         this.dataBlock.on("pointermove", this.handlePointerMove.bind(this));
         this.dataBlock.on("rightclick", () => this.handleRightClick());
         this.stage.addChild(this.dataBlock);
 
         this.scratchPad = new LabelScratchPad(this);
-        
+
         this.updateData(acftData);
         this.formatText();
         this.updatePosition();
@@ -178,9 +178,33 @@ export default class AircraftLabel {
         this.isHovered = false;
         this.drawHoveringBackground();
     }
-
-    handlePointerDown() {
+    handlePointerDown(ev: PointerEvent) {
         this.isDragged = true;
+        // I changed this to global drag handlers as dragging the label fast would cause the mouse to leave the label
+        // and stop receiving pointermove events, making it impossible to drag fast or far. - awdev 11.24.2025
+    
+        const moveHandler = (ev: PointerEvent) => {
+            if (!this.isDragged) return;
+
+            this.dragOffset.x += ev.movementX / this.basemap.scale.x;
+            this.dragOffset.y += ev.movementY / this.basemap.scale.y;
+
+            this.isFlipped =
+                this.dataBlock.position.x - acftToScreenPos(this.acftData, this.basemap).x < 0;
+
+            this.updatePosition();
+            this.updateGraphics();
+            this.scratchPad.updatePosition();
+        };
+
+        const upHandler = () => {
+            this.isDragged = false;
+            window.removeEventListener("pointermove", moveHandler);
+            window.removeEventListener("pointerup", upHandler);
+        };
+
+        window.addEventListener("pointermove", moveHandler);
+        window.addEventListener("pointerup", upHandler);
     }
 
     handlePointerUp() {
