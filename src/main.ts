@@ -26,8 +26,6 @@ const DOUBLE_CLICK_DISTANCE = 200;
 // const gameSize = {x: 96355, y: 92030};
 const antialias = false;
 
-let tickInterval: number;
-
 (async () => {
     // Initialisation
     ///////////////////
@@ -182,7 +180,6 @@ let tickInterval: number;
 
     // Event switching & keybinds
     ///////////////////////////////
-    let activeRoute = 0;
     let lastSwitchTime = 0;
 
     window.addEventListener("keydown", ev => {

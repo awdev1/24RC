@@ -432,6 +432,29 @@
         ]
     },
     {
+        "cateogry": "IBRD",
+        "assets": [
+            {
+                "id": "RWY_NE",
+                "name": "RWY_NE",
+                "route": "/assets/maps/IBRD/RWY_NE.svg",
+                "defaultStyle": { "color": 16776960, "pixelLine": true, "alpha": 0.4 }
+            },
+            {
+                "id": "RWY_SW",
+                "name": "RWY_SW",
+                "route": "/assets/maps/IBRD/RWY_SW.svg",
+                "defaultStyle": { "color": 16776960, "pixelLine": true, "alpha": 0.4 }
+            },
+            {
+                "id": "GROUND",
+                "name": "GROUND",
+                "route": "/assets/maps/IBRD/GROUND.svg",
+                "defaultStyle": { "color": 16777215, "pixelLine": true, "alpha": 0.4 }
+            }
+        ]
+    },
+    {
         "cateogry": "ITRC",
         "assets": [
             {
